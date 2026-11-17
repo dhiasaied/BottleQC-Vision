@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BottleQC Vision</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" class="logo" aria-hidden="true">
+        <rect x="11" y="2" width="10" height="5" rx="1.5" fill="currentColor" />
+        <path d="M12 8h8v5l4 4v12a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V17l4-4z" fill="none" stroke="currentColor" stroke-width="2" />
+        <path d="M11 21l3 3 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <div>
+        <h1>BottleQC Vision</h1>
+        <p id="model-line">Loading model…</p>
+      </div>
+    </div>
+    <div class="top-meta">
+      <span id="state-pill" class="pill idle"><i></i><b>Idle</b></span>
+      <span class="meta" id="session-label">No session</span>
+      <span class="meta mono" id="elapsed">00:00:00</span>
+      <button class="icon-btn" id="open-reports" title="Reports & history">
+        <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z M14 2v6h6 M9 13h8 M9 17h8" /></svg>
+        <span>Reports</span>
+      </button>
+      <button class="icon-btn" id="open-settings" title="Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+        <span>Settings</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="controls card">
+    <div class="field">
+      <label for="src-type">Source</label>
+      <select id="src-type">
+        <option value="synthetic">Simulated production line</option>
+        <option value="file">Video file</option>
+        <option value="camera">USB / webcam</option>
+        <option value="stream">RTSP / HTTP stream</option>
+      </select>
+    </div>
+    <div class="field grow src-opt" data-for="file">
+      <label for="src-file">Video</label>
+      <div class="row">
+        <select id="src-file"></select>
+        <label class="btn ghost upload">
+          <input type="file" id="upload" accept="video/*" hidden />
+          <svg viewBox="0 0 24 24"><path d="M12 16V4 M7 9l5-5 5 5 M4 20h16" /></svg>Upload
+        </label>
+      </div>
+    </div>
+    <div class="field src-opt" data-for="camera">
+      <label for="src-camera">Camera index</label>
+      <input id="src-camera" type="number" min="0" value="0" />
+    </div>
+    <div class="field grow src-opt" data-for="stream">
+      <label for="src-stream">Stream URL</label>
+      <input id="src-stream" type="text" placeholder="rtsp://user:pass@host:554/stream" />
+    </div>
+    <div class="field expected">
+      <label>Expected cap</label>
+      <div id="expected-chip" class="chip"><i></i><span>pink</span></div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="btn-start"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" /></svg>Start</button>
+      <button class="btn" id="btn-pause" disabled><svg viewBox="0 0 24 24"><path d="M7 4h4v16H7z M14 4h4v16h-4z" /></svg><span>Pause</span></button>
+      <button class="btn danger" id="btn-stop" disabled><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" /></svg>Stop</button>
+    </div>
+  </section>
+
+  <main class="grid">
+    <section class="card feed">
+      <div class="card-head">
+        <h2>Live inspection</h2>
+        <div class="badges">
+          <span class="badge mono" id="b-fps">-- FPS</span>
+          <span class="badge mono" id="b-infer">-- ms</span>
+          <span class="badge mono" id="b-tracks">0 tracked</span>
+        </div>
+      </div>
+      <div class="video-wrap">
+        <img id="video" alt="Annotated live inspection stream" />
+        <div id="video-empty" class="video-empty">
+          <svg viewBox="0 0 24 24"><path d="M3 7h13v10H3z M16 10l5-3v10l-5-3" /></svg>
+          <p>Stream is idle</p>
+          <small>Choose a source and press <b>Start</b> to begin detection, tracking and counting.</small>
+        </div>
+        <div class="legend">
+          <span><i style="--c:var(--ok)"></i>OK</span>
+          <span><i style="--c:var(--bad)"></i>Missing cap</span>
+          <span><i style="--c:var(--warn)"></i>Wrong colour</span>
+          <span><i style="--c:var(--line)"></i>Count line</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="kpis">
+      <article class="kpi card"><span>Total counted</span><strong id="k-total">0</strong><small id="k-avg">avg — /min</small></article>
+      <article class="kpi card ok"><span>Passed</span><strong id="k-ok">0</strong><small id="k-ok-pct">—</small></article>
+      <article class="kpi card bad"><span>Defects</span><strong id="k-def">0</strong><small><b id="k-nocap">0</b> no cap · <b id="k-wrong">0</b> wrong colour</small></article>
+      <article class="kpi card yield">
+        <div>
+          <span>First-pass yield</span><strong id="k-yield">—</strong><small id="k-tp">0 bottles / last min</small>
+        </div>
+        <svg viewBox="0 0 36 36" class="ring"><circle cx="18" cy="18" r="15.9" class="track" /><circle cx="18" cy="18" r="15.9" class="bar" id="yield-ring" /></svg>
+      </article>
+    </section>
+
+    <section class="card chart-card throughput">
+      <div class="card-head"><h2>Production timeline</h2><span class="hint">cumulative count · defects</span></div>
+      <div class="chart-box"><canvas id="c-timeline"></canvas></div>
+    </section>
+
+    <section class="card chart-card">
+      <div class="card-head"><h2>Quality results</h2></div>
+      <div class="chart-box sm"><canvas id="c-results"></canvas></div>
+    </section>
+
+    <section class="card chart-card">
+      <div class="card-head"><h2>Cap colours</h2></div>
+      <div class="chart-box sm"><canvas id="c-colors"></canvas></div>
+    </section>
+
+    <section class="card log">
+      <div class="card-head">
+        <h2>Inspection log</h2>
+        <div class="tabs" id="log-tabs">
+          <button data-f="" class="active">All</button>
+          <button data-f="DEFECT">Defects</button>
+          <button data-f="NO_CAP">Missing cap</button>
+          <button data-f="WRONG_COLOR">Wrong colour</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th></th><th>#</th><th>Time</th><th>Track</th><th>Result</th><th>Cap colour</th><th>Colour conf.</th><th>Det. conf.</th><th>Frames</th></tr></thead>
+          <tbody id="log-body"><tr class="empty"><td colspan="9">No inspections yet</td></tr></tbody>
+        </table>
+      </div>
+      <button class="btn ghost more" id="log-more" hidden>Load more</button>
+    </section>
+  </main>
+
+  <!-- settings drawer -->
+  <aside class="drawer" id="settings" aria-hidden="true">
+    <div class="drawer-head"><h2>Inspection settings</h2><button class="x" data-close>&times;</button></div>
+    <div class="drawer-body">
+      <div class="group">
+        <label>Expected cap colour</label>
+        <div class="swatches" id="swatches"></div>
+        <small>Bottles whose cap colour differs are flagged <b>Wrong colour</b>. "Any" only checks cap presence.</small>
+      </div>
+      <div class="group">
+        <label for="s-model">Model</label>
+        <select id="s-model"></select>
+        <small id="s-model-info"></small>
+      </div>
+      <div class="group">
+        <label for="s-conf">Detection confidence <output id="o-conf"></output></label>
+        <input type="range" id="s-conf" min="0.05" max="0.95" step="0.05" />
+      </div>
+      <div class="group">
+        <label for="s-iou">NMS IoU <output id="o-iou"></output></label>
+        <input type="range" id="s-iou" min="0.1" max="0.95" step="0.05" />
+      </div>
+      <div class="group">
+        <label for="s-line">Counting line position <output id="o-line"></output></label>
+        <input type="range" id="s-line" min="0.05" max="0.95" step="0.01" />
+      </div>
+      <div class="group">
+        <label for="s-presence">Cap presence threshold <output id="o-presence"></output></label>
+        <input type="range" id="s-presence" min="0.1" max="1" step="0.05" />
+        <small>Share of tracked frames in which a cap must be detected.</small>
+      </div>
+      <div class="group two">
+        <div>
+          <label for="s-dir">Flow direction</label>
+          <select id="s-dir"><option value="ltr">Left → right</option><option value="rtl">Right → left</option></select>
+        </div>
+        <div>
+          <label for="s-tracker">Tracker</label>
+          <select id="s-tracker"><option value="bytetrack.yaml">ByteTrack</option><option value="botsort.yaml">BoT-SORT</option></select>
+        </div>
+      </div>
+      <div class="group two">
+        <div>
+          <label for="s-imgsz">Inference size</label>
+          <select id="s-imgsz"><option>320</option><option>416</option><option>512</option><option>640</option><option>800</option></select>
+        </div>
+        <div class="checks">
+          <label><input type="checkbox" id="s-loop" /> Loop video files</label>
+          <label><input type="checkbox" id="s-realtime" /> Real-time pacing</label>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- reports drawer -->
+  <aside class="drawer" id="reports" aria-hidden="true">
+    <div class="drawer-head"><h2>Reports & history</h2><button class="x" data-close>&times;</button></div>
+    <div class="drawer-body">
+      <div class="group">
+        <label for="r-scope">Report scope</label>
+        <select id="r-scope"></select>
+      </div>
+      <div class="export-btns">
+        <button class="btn" data-fmt="csv"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z M14 2v6h6" /></svg>CSV</button>
+        <button class="btn" data-fmt="xlsx"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z M4 10h16 M10 4v16" /></svg>Excel</button>
+        <button class="btn primary" data-fmt="pdf"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z M9 14h6 M9 18h4" /></svg>PDF report</button>
+      </div>
+      <h3>Production sessions</h3>
+      <ul class="sessions" id="sessions"></ul>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+  <div class="toasts" id="toasts"></div>
+</body>
+</html>
